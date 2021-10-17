@@ -1,26 +1,32 @@
 pipeline {
+    agent any
     
-	agent any
-/*	
-	tools {
-        maven "maven3"
+    tools {
+        maven "MyMaven"
     }
-*/	
     environment {
         NEXUS_VERSION = "nexus3"
         NEXUS_PROTOCOL = "http"
         NEXUS_URL = "172.31.28.99:8081"
         NEXUS_REPOSITORY = "vprofile-release"
-	NEXUS_REPO_ID    = "vprofile-release"
-        NEXUS_CREDENTIAL_ID = "nexuslogin"
+	    NEXUS_REPO_ID    = "vprofile-release"
+	    NEXUS_REPOGRP_ID = "vpro-maven-group"
+        NEXUS_CREDENTIAL_ID = "nexusserverLogin"
+        scannerHome = tool 'MySonar-4.6.2.2'
         ARTVERSION = "${env.BUILD_ID}"
     }
-	
-    stages{
-        
-        stage('BUILD'){
+
+    stages {
+        stage('SCM') {
             steps {
-                sh 'mvn clean install -DskipTests'
+                // Get some code from a GitHub repository
+                git branch: 'cd-jenkins', url: 'https://github.com/karthikchary/vprofile-project.git'
+
+            }
+        }
+        stage('Build'){
+            steps {
+                sh "mvn clean install"
             }
             post {
                 success {
@@ -29,19 +35,16 @@ pipeline {
                 }
             }
         }
-
-	stage('UNIT TEST'){
+        stage('Test'){
             steps {
-                sh 'mvn test'
+                sh "mvn test"
             }
         }
-
-	stage('INTEGRATION TEST'){
+        stage('INTEGRATION TEST'){
             steps {
                 sh 'mvn verify -DskipUnitTests'
             }
         }
-		
         stage ('CODE ANALYSIS WITH CHECKSTYLE'){
             steps {
                 sh 'mvn checkstyle:checkstyle'
@@ -52,15 +55,11 @@ pipeline {
                 }
             }
         }
-
         stage('CODE ANALYSIS with SONARQUBE') {
           
-		  environment {
-             scannerHome = tool 'sonarscanner4'
-          }
 
           steps {
-            withSonarQubeEnv('sonar-pro') {
+            withSonarQubeEnv('sonar-vprofile') {
                sh '''${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=vprofile \
                    -Dsonar.projectName=vprofile-repo \
                    -Dsonar.projectVersion=1.0 \
@@ -76,7 +75,7 @@ pipeline {
             }
           }
         }
-
+        
         stage("Publish to Nexus Repository Manager") {
             steps {
                 script {
@@ -113,9 +112,5 @@ pipeline {
                 }
             }
         }
-
-
     }
-
-
 }
