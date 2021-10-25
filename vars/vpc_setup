@@ -12,11 +12,11 @@ PrivSub2Cidr: 172.20.5.0/24
 PrivSub3Cidr: 172.20.6.0/24
 
 # Region Name
-region: "us-east-2"
+region: "ap-south-1"
 
 # Zone Names
-zone1: us-east-2a
-zone2: us-east-2b
-zone3: us-east-2c
+zone1: ap-south-1a
+zone2: ap-south-1b
+zone3: ap-south-1c
 
 state: present
