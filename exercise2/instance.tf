@@ -3,9 +3,9 @@ resource "aws_instance" "dove-inst" {
   instance_type          = "t2.micro"
   availability_zone      = var.ZONE1
   key_name               = "new-dove"
-  vpc_security_group_ids = ["sg-0780815f55104be8a"]
+  vpc_security_group_ids = ["sg-0628ad93a7b58f5f5"]
   tags = {
-    Name    = "Dove-Instance"
+    Name    = "Dove-Instance_terraform2"
     Project = "Dove"
   }
 }
