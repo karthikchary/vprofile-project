@@ -1,35 +1,60 @@
 #!/bin/bash
-yum install java-1.8.0-openjdk.x86_64 wget -y   
-mkdir -p /opt/nexus/   
-mkdir -p /tmp/nexus/                           
-cd /tmp/nexus
-NEXUSURL="https://download.sonatype.com/nexus/3/latest-unix.tar.gz"
-wget $NEXUSURL -O nexus.tar.gz
-EXTOUT=`tar xzvf nexus.tar.gz`
-NEXUSDIR=`echo $EXTOUT | cut -d '/' -f1`
-rm -rf /tmp/nexus/nexus.tar.gz
-rsync -avzh /tmp/nexus/ /opt/nexus/
-useradd nexus
-chown -R nexus.nexus /opt/nexus 
-cat <<EOT>> /etc/systemd/system/nexus.service
-[Unit]                                                                          
-Description=nexus service                                                       
-After=network.target                                                            
-                                                                  
-[Service]                                                                       
-Type=forking                                                                    
-LimitNOFILE=65536                                                               
-ExecStart=/opt/nexus/$NEXUSDIR/bin/nexus start                                  
-ExecStop=/opt/nexus/$NEXUSDIR/bin/nexus stop                                    
-User=nexus                                                                      
-Restart=on-abort                                                                
-                                                                  
-[Install]                                                                       
-WantedBy=multi-user.target                                                      
 
+# 1. Install Java 17 and other requirements
+yum install -y java-17-amazon-corretto wget tar rsync
+
+# 2. Set up paths
+NEXUS_HOME="/opt/nexus"
+TMPDIR="/tmp/nexus"
+NEXUS_URL="https://download.sonatype.com/nexus/3/latest-unix.tar.gz"
+
+# 3. Create directories
+mkdir -p "$NEXUS_HOME"
+mkdir -p "$TMPDIR"
+cd "$TMPDIR"
+
+# 4. Download and extract Nexus
+wget "$NEXUS_URL" -O nexus.tar.gz
+tar xzvf nexus.tar.gz
+NEXUSDIR=$(ls -d nexus-*/ | head -n 1 | cut -d/ -f1)
+rsync -avz "$NEXUSDIR/" "$NEXUS_HOME/"
+rm -rf "$TMPDIR"
+
+# 5. Create Nexus user & permissions
+id nexus &>/dev/null || useradd --system --no-create-home nexus
+chown -R nexus:nexus "$NEXUS_HOME"
+
+# 6. Ensure Nexus runs as nexus user
+echo 'run_as_user="nexus"' > "$NEXUS_HOME/bin/nexus.rc"
+
+# 7. Set up systemd service
+cat > /etc/systemd/system/nexus.service <<EOT
+[Unit]
+Description=Sonatype Nexus Repository Manager
+After=network.target
+
+[Service]
+Type=forking
+LimitNOFILE=65536
+ExecStart=$NEXUS_HOME/bin/nexus start
+ExecStop=$NEXUS_HOME/bin/nexus stop
+User=nexus
+Restart=on-failure
+TimeoutSec=600
+
+[Install]
+WantedBy=multi-user.target
 EOT
 
-echo 'run_as_user="nexus"' > /opt/nexus/$NEXUSDIR/bin/nexus.rc
+# 8. Enable and start the service
 systemctl daemon-reload
-systemctl start nexus
 systemctl enable nexus
+systemctl start nexus
+
+# 9. Firewall (if enabled, open port 8081)
+if systemctl status firewalld &>/dev/null; then
+    firewall-cmd --add-port=8081/tcp --permanent
+    firewall-cmd --reload
+fi
+
+echo "Nexus installed & running. Access: http://<your-server-ip>:8081"
